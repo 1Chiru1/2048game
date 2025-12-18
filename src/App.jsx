@@ -19,18 +19,22 @@ function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [board, setBoard] = useState(() => initializeBoard());
   const [gameOver, setGameOver] = useState(false);
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
 
-  const handleKeyDown = useCallback((e) => {
+  // Minimum swipe distance (in px)
+  const minSwipeDistance = 50;
+
+  const handleMove = useCallback((direction) => {
     if (gameOver) return;
 
     let processedBoard;
     const currentBoardCopy = board.map((row) => [...row]);
 
-    if (e.key === "ArrowLeft") processedBoard = moveLeft(currentBoardCopy);
-    else if (e.key === "ArrowRight")
-      processedBoard = moveRight(currentBoardCopy);
-    else if (e.key === "ArrowUp") processedBoard = moveUp(currentBoardCopy);
-    else if (e.key === "ArrowDown") processedBoard = moveDown(currentBoardCopy);
+    if (direction === "left") processedBoard = moveLeft(currentBoardCopy);
+    else if (direction === "right") processedBoard = moveRight(currentBoardCopy);
+    else if (direction === "up") processedBoard = moveUp(currentBoardCopy);
+    else if (direction === "down") processedBoard = moveDown(currentBoardCopy);
     else return;
 
     if (JSON.stringify(board) !== JSON.stringify(processedBoard)) {
@@ -42,6 +46,46 @@ function App() {
       }
     }
   }, [board, gameOver]);
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === "ArrowLeft") handleMove("left");
+    else if (e.key === "ArrowRight") handleMove("right");
+    else if (e.key === "ArrowUp") handleMove("up");
+    else if (e.key === "ArrowDown") handleMove("down");
+  }, [handleMove]);
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY,
+    });
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY,
+    });
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distanceX = touchStart.x - touchEnd.x;
+    const distanceY = touchStart.y - touchEnd.y;
+    const isHorizontalSwipe = Math.abs(distanceX) > Math.abs(distanceY);
+
+    if (isHorizontalSwipe) {
+      if (Math.abs(distanceX) > minSwipeDistance) {
+        handleMove(distanceX > 0 ? "left" : "right");
+      }
+    } else {
+      if (Math.abs(distanceY) > minSwipeDistance) {
+        handleMove(distanceY > 0 ? "up" : "down");
+      }
+    }
+  };
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -79,7 +123,12 @@ function App() {
         <h1>2048 Game</h1>
         <BackButton onBack={backToMenu} />
       </div>
-      <div className="board-container">
+      <div 
+        className="board-container"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         <Board board={board} />
         <GameOver isGameOver={gameOver} />
       </div>
